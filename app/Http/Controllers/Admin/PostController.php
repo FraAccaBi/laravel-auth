@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Models\Post;
-use Illuminate\Http\Request;
+use App\Models\Category;
 use App\Http\Controllers\Controller;
-
+use App\Http\Requests\PostRequest;
+use Illuminate\Http\Request; // 👈 Import the Request class
+use Illuminate\Validation\Rule; // 👈 Import the Validation Rule class
 class PostController extends Controller
 {
     /**
@@ -15,8 +17,8 @@ class PostController extends Controller
      */
     public function index()
     {
-        $posts = Post::all();
-        dd($posts);
+        $posts = Post::orderByDesc('id')->get();
+        //dd($posts);
         return view('admin.posts.index', compact('posts'));
     }
 
@@ -27,18 +29,37 @@ class PostController extends Controller
      */
     public function create()
     {
-        //
+        $categories = Category::all();
+        //dd($categories);
+        return view('admin.posts.create', compact('categories'));
     }
 
     /**
      * Store a newly created resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Http\Requests\PostRequest $request
      * @return \Illuminate\Http\Response
      */
-    public function store(Request $request)
+    public function store(PostRequest $request)
     {
-        //
+        //dd($request->all());
+
+        // Validate data
+        $val_data = $request->validated();
+
+        // se l'id esiste tra gli id della tabelal categories
+
+
+        // Gererate the slug
+        $slug = Post::generateSlug($request->title);
+        $val_data['slug'] = $slug;
+
+        //dd($val_data);
+
+        // create the resource
+        Post::create($val_data);
+        // redirect to a get route
+        return redirect()->route('admin.posts.index')->with('message', 'Post Created Successfully');
     }
 
     /**
@@ -49,7 +70,7 @@ class PostController extends Controller
      */
     public function show(Post $post)
     {
-        //
+        return view('admin.posts.show', compact('post'));
     }
 
     /**
@@ -60,19 +81,45 @@ class PostController extends Controller
      */
     public function edit(Post $post)
     {
-        //
+
+        $categories = Category::all();
+
+        return view('admin.posts.edit', compact('post', 'categories'));
     }
 
     /**
      * Update the specified resource in storage.
      *
-     * @param  \Illuminate\Http\Request  $request
+     * @param  \App\Http\Requests\PostRequest  $request
      * @param  \App\Models\Post  $post
      * @return \Illuminate\Http\Response
      */
     public function update(Request $request, Post $post)
     {
-        //
+        /* Use the standard Request ☝ */
+        //dd($request->all());
+
+        // validate data
+        //$val_data = $request->validated();
+
+        /* ⚡ Validation unique ⚡*/
+        $val_data = $request->validate([
+            'title' => ['required', Rule::unique('posts')->ignore($post)],
+            'category_id' => 'nullable|exists:categories,id',
+            'cover_image' => 'nullable',
+            'content' => 'nullable'
+        ]);
+
+        //dd($val_data);
+        // Gererate the slug
+        $slug = Post::generateSlug($request->title);
+        //dd($slug);
+        $val_data['slug'] = $slug;
+        // update the resource
+        $post->update($val_data);
+
+        // redirect to get route
+        return redirect()->route('admin.posts.index')->with('message', "$post->title updated successfully");
     }
 
     /**
@@ -84,5 +131,9 @@ class PostController extends Controller
     public function destroy(Post $post)
     {
         //
+
+        $post->delete();
+        return redirect()->route('admin.posts.index')->with('message', "$post->title deleted successfully");
+
     }
 }
